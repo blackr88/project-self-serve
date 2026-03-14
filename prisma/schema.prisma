@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  user
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password_hash String
+  role          Role     @default(user)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  pages         Page[]
+
+  @@map("users")
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  user_id     String
+  subdomain   String   @unique
+  folder_path String
+  file_count  Int      @default(1)
+  total_size  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([subdomain])
+  @@map("pages")
+}
+
+/// Single-row table to store app-level settings
+model AppSetting {
+  id              String   @id @default("app_settings")
+  setup_complete  Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("app_settings")
+}
