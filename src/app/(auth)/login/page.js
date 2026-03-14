@@ -7,7 +7,21 @@ import { Mail, Lock, ArrowRight, Loader2, Zap } from 'lucide-react';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/dashboard';
+
+  // Sanitize redirect: only allow internal paths starting with /
+  // Block absolute URLs, protocol-relative URLs, and encoded tricks
+  const rawRedirect = searchParams.get('redirect') || '/dashboard';
+  const redirect = (() => {
+    const r = rawRedirect.trim();
+    if (!r.startsWith('/')) return '/dashboard';
+    if (r.startsWith('//')) return '/dashboard';
+    if (r.includes('://')) return '/dashboard';
+    if (r.includes('\\')) return '/dashboard';
+    // Only allow known internal paths
+    const allowedPrefixes = ['/dashboard', '/my-pages', '/upload', '/settings', '/admin', '/'];
+    const isAllowed = allowedPrefixes.some((p) => r === p || r.startsWith(p + '/') || r.startsWith(p + '?'));
+    return isAllowed ? r : '/dashboard';
+  })();
 
   const [checking, setChecking] = useState(true);
   const [formData, setFormData] = useState({ email: '', password: '' });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const PUBLIC_PATHS = ['/login', '/setup', '/api/login', '/api/setup', '/api/setup/status'];
+const PUBLIC_EXACT = ['/']; // Root page handles its own routing
 const AUTH_PAGES = ['/login', '/setup'];
 const ADMIN_PATHS = ['/admin', '/api/admin'];
 
@@ -38,8 +39,9 @@ export async function middleware(request) {
 
   // ─── Public paths ───────────────────────────────────────
   const isPublicPath = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  const isPublicExact = PUBLIC_EXACT.includes(pathname);
 
-  if (isPublicPath) {
+  if (isPublicPath || isPublicExact) {
     if (token && AUTH_PAGES.includes(pathname)) {
       const decoded = await verifyTokenEdge(token);
       if (decoded) {
@@ -66,7 +68,11 @@ export async function middleware(request) {
       );
     }
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    // Only pass safe internal paths as redirect (no query strings, no external URLs)
+    const safePath = pathname.replace(/[^a-zA-Z0-9\-\/]/g, '');
+    if (safePath && safePath.startsWith('/') && !safePath.startsWith('//')) {
+      loginUrl.searchParams.set('redirect', safePath);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
@@ -104,10 +110,6 @@ export async function middleware(request) {
   requestHeaders.set('x-user-id', decoded.userId);
   requestHeaders.set('x-user-email', decoded.email);
   requestHeaders.set('x-user-role', decoded.role || 'user');
-
-  if (pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
 
   return NextResponse.next({
     request: { headers: requestHeaders },
